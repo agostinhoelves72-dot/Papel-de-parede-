@@ -1,0 +1,116 @@
+mkdir -p papel_parede/lib papel_parede/.github/workflows && cd papel_parede
+
+cat > pubspec.yaml << 'EOF'
+name: papel_parede
+description: App de papeis de parede
+publish_to: 'none'
+version: 1.0.0+1
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+flutter:
+  uses-material-design: true
+EOF
+
+cat > lib/main.dart << 'EOF'
+import 'package:flutter/material.dart';
+
+void main() => runApp(const MyApp());
+
+String wall(int i, int w, int h) => 'https://picsum.photos/seed/wall$i/$w/$h';
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Papéis de Parede',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorSchemeSeed: Colors.indigo,
+        brightness: Brightness.dark,
+      ),
+      home: const Home(),
+    );
+  }
+}
+
+class Home extends StatelessWidget {
+  const Home({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Papéis de Parede')),
+      body: GridView.builder(
+        padding: const EdgeInsets.all(8),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.6,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+        ),
+        itemCount: 40,
+        itemBuilder: (context, i) {
+          return GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => Viewer(index: i)),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(wall(i, 400, 700), fit: BoxFit.cover),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class Viewer extends StatelessWidget {
+  final int index;
+  const Viewer({super.key, required this.index});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+      body: SizedBox.expand(
+        child: Image.network(wall(index, 1080, 1920), fit: BoxFit.cover),
+      ),
+    );
+  }
+}
+EOF
+
+cat > .github/workflows/build.yml << 'EOF'
+name: Build APK
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter create --platforms=android --project-name papel_parede --org com.exemplo .
+      - run: sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/><application#' android/app/src/main/AndroidManifest.xml
+      - run: flutter pub get
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+EOF
+
+zip -r ../papel_parede.zip . && cd .. && echo "ZIP criado: papel_parede.zip"
